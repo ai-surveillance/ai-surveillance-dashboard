@@ -2,18 +2,18 @@
 # AI SMART SURVEILLANCE — PREMIUM LANDSCAPE v4.0
 # Cyberpunk Command Center | Satellite Map | Neon UI
 # ==========================================================
+import gc
 import streamlit as st
 import pandas as pd
 import numpy as np
 import ast, re, warnings
 import plotly.express as px
 import plotly.graph_objects as go
-from io import StringIO
 from sklearn.ensemble import IsolationForest
 from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler
+from io import StringIO
 from datetime import datetime
-import gc
 warnings.filterwarnings("ignore")
 
 st.set_page_config(
@@ -30,10 +30,7 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap');
 
-/* ── Reset & Global ───────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { overflow-x: hidden; }
-body { background: #020812 !important; }
+/* ── Global ───────────────────────────────────────────── */
 .stApp {
     background: #020812 !important;
     background-image:
@@ -41,18 +38,19 @@ body { background: #020812 !important; }
         linear-gradient(90deg, rgba(0,212,255,0.04) 1px, transparent 1px) !important;
     background-size: 40px 40px !important;
     font-family: 'Inter', sans-serif !important;
+    color: #c8e8ff !important;
 }
 
-/* ── Remove ALL Streamlit chrome ─────────────────────── */
-#MainMenu, header, footer, [data-testid="collapseSidebar"],
-button[data-testid="baseButton-headerNoPadding"],
-[data-testid="stToolbar"], .streamlit-wide,
+/* ── Hide Streamlit chrome ────────────────────────────── */
+#MainMenu, header, footer, [data-testid="stToolbar"] {
+    visibility: hidden !important; height: 0 !important;
+}
 section[data-testid="stSidebar"] { display: none !important; }
 
-/* ── Main container — zero padding ───────────────────── */
+/* ── Main container ───────────────────────────────────── */
 .main .block-container {
-    padding: 0 !important; max-width: 100% !important;
-    margin: 0 !important; width: 100% !important;
+    max-width: 100% !important; width: 100% !important;
+    padding: 0.5rem 1rem !important;
 }
 
 /* ── Scrollbar ────────────────────────────────────────── */
@@ -69,19 +67,16 @@ section[data-testid="stSidebar"] { display: none !important; }
 /* ── Panel card ───────────────────────────────────────── */
 .panel {
     background: linear-gradient(135deg, rgba(0,20,50,0.95), rgba(0,10,30,0.98));
-    border: 1px solid rgba(0,212,255,0.25);
-    border-radius: 8px;
+    border: 1px solid rgba(0,212,255,0.25); border-radius: 8px;
     box-shadow: 0 0 20px rgba(0,212,255,0.08), inset 0 1px 0 rgba(0,212,255,0.1);
-    padding: 12px 14px;
-    position: relative;
-    overflow: hidden;
+    padding: 12px 14px; position: relative; overflow: hidden;
 }
 .panel::before {
     content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
     background: linear-gradient(90deg, transparent, #00d4ff, transparent);
 }
 
-/* ── KPI card ─────────────────────────────────────────── */
+/* ── KPI card (top header) ────────────────────────────── */
 .kpi-top {
     background: linear-gradient(135deg, rgba(0,25,60,0.95), rgba(0,15,40,0.95));
     border: 1px solid rgba(0,212,255,0.3); border-radius: 6px;
@@ -89,12 +84,12 @@ section[data-testid="stSidebar"] { display: none !important; }
     box-shadow: 0 0 15px rgba(0,212,255,0.12);
 }
 .kpi-top .k-label { font-size: 9px; font-weight: 700; letter-spacing: 1.5px;
-    text-transform: uppercase; color: #7ab8e8; font-family:'Inter'; }
-.kpi-top .k-val { font-size: 28px; font-weight: 900; line-height: 1.1;
-    font-family: 'Orbitron', monospace; }
+    text-transform: uppercase; color: #7ab8e8; font-family: 'Inter'; }
+.kpi-top .k-val { font-size: 22px; font-weight: 900; line-height: 1.1;
+    font-family: 'Orbitron', monospace; white-space: nowrap; }
 .kpi-top .k-icon { font-size: 16px; margin-bottom: 2px; }
 
-/* ── Nav item ─────────────────────────────────────────── */
+/* ── Nav item (sidebar) ───────────────────────────────── */
 .nav-item {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     padding: 10px 6px; border-radius: 8px; margin: 4px 0; cursor: pointer;
@@ -106,14 +101,15 @@ section[data-testid="stSidebar"] { display: none !important; }
 }
 .nav-icon { font-size: 18px; }
 .nav-label { font-size: 8px; color: #7ab8e8; font-weight: 700; letter-spacing: 1px;
-    text-transform: uppercase; margin-top: 3px; font-family:'Inter'; }
+    text-transform: uppercase; margin-top: 3px; font-family: 'Inter'; }
 
 /* ── Alert row ────────────────────────────────────────── */
 .alert-row {
     display: flex; align-items: center; gap: 8px;
     padding: 6px 10px; border-radius: 6px; margin-bottom: 5px;
-    border-left: 3px solid;
+    border-left: 3px solid; transition: all 0.3s;
 }
+.alert-row:hover { background: rgba(0,30,70,0.8) !important; }
 .alert-row .ar-id { font-size: 11px; font-weight: 800; font-family: 'Share Tech Mono', monospace; }
 .alert-row .ar-badge {
     font-size: 9px; font-weight: 700; letter-spacing: 1px;
@@ -132,7 +128,7 @@ section[data-testid="stSidebar"] { display: none !important; }
 
 /* ── Bottom info card ─────────────────────────────────── */
 .info-card {
-    background: linear-gradient(135deg,rgba(0,20,50,0.9),rgba(0,10,28,0.95));
+    background: linear-gradient(135deg, rgba(0,20,50,0.9), rgba(0,10,28,0.95));
     border: 1px solid rgba(0,212,255,0.2); border-radius: 8px;
     padding: 12px 14px; height: 100%;
     box-shadow: 0 0 15px rgba(0,212,255,0.06);
@@ -148,7 +144,7 @@ section[data-testid="stSidebar"] { display: none !important; }
 .flow-box {
     background: rgba(0,25,60,0.8); border: 1px solid rgba(0,212,255,0.3);
     border-radius: 6px; padding: 6px 10px; font-size: 10px; color: #c8e8ff;
-    text-align: center; font-weight: 600; font-family:'Inter';
+    text-align: center; font-weight: 600; font-family: 'Inter';
 }
 .flow-arrow { color: #00d4ff; font-size: 14px; text-align: center; line-height: 1; }
 
@@ -162,43 +158,111 @@ section[data-testid="stSidebar"] { display: none !important; }
 .det-check { color: #00ff88; font-size: 13px; }
 
 /* ── Live badge ───────────────────────────────────────── */
-.dataset-badge {
+.live-badge {
     display: inline-flex; align-items: center; gap: 5px;
     background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.3);
     border-radius: 4px; padding: 3px 10px; font-size: 10px; font-weight: 700;
-    color: #00ff88; letter-spacing: 1px; text-transform: uppercase; font-family:'Inter';
+    color: #00ff88; letter-spacing: 1px; text-transform: uppercase; font-family: 'Inter';
 }
 .live-dot { width: 6px; height: 6px; background: #00ff88; border-radius: 50%;
     box-shadow: 0 0 6px #00ff88; animation: blink 1.2s infinite; }
-@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.2; } }
 
-/* ── Plotly charts transparent ────────────────────────── */
+/* ── Dataset badge ────────────────────────────────────── */
+.dataset-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.3);
+    border-radius: 12px; padding: 3px 10px; font-size: 9px; font-weight: 700;
+    color: #00ff88; font-family: 'Share Tech Mono'; letter-spacing: 1px;
+}
+.dataset-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(0,255,136,0.3); }
+
+/* ── Plotly transparent ───────────────────────────────── */
 .js-plotly-plot, .plotly { background: transparent !important; }
+.stPlotlyChart { border-radius: 6px; }
 
 /* ── Streamlit widget overrides ───────────────────────── */
-[data-testid="stSlider"] [data-testid="stWidgetLabel"] p { color:#7ab8e8 !important; font-size:11px !important; }
-[data-testid="stSlider"] * { color:#c8e8ff !important; }
-[data-baseweb="select"] { background:rgba(0,15,40,0.9) !important; border-color:rgba(0,212,255,0.3) !important; }
-[data-baseweb="select"] * { color:#c8e8ff !important; }
-[data-testid="stWidgetLabel"] p { color:#7ab8e8 !important; font-size:11px !important; font-weight:600 !important; }
+[data-testid="stSlider"] [data-testid="stWidgetLabel"] p { color: #7ab8e8 !important; font-size: 11px !important; }
+[data-testid="stSlider"] * { color: #c8e8ff !important; }
+[data-baseweb="select"] { background: rgba(0,15,40,0.9) !important; border-color: rgba(0,212,255,0.3) !important; }
+[data-baseweb="select"] * { color: #c8e8ff !important; }
+[data-testid="stWidgetLabel"] p { color: #7ab8e8 !important; font-size: 11px !important; font-weight: 600 !important; }
+
 .stDownloadButton button {
-    background: linear-gradient(135deg,#003580,#005ec2) !important;
-    border: 1px solid rgba(0,212,255,0.4) !important; border-radius:6px !important;
-    color: white !important; font-weight:700 !important; font-size:11px !important;
+    background: linear-gradient(135deg, #003580, #005ec2) !important;
+    border: 1px solid rgba(0,212,255,0.4) !important; border-radius: 6px !important;
+    color: white !important; font-weight: 700 !important; font-size: 11px !important;
     box-shadow: 0 0 12px rgba(0,212,255,0.2) !important;
 }
-[data-testid="stDataFrame"] * { color: #c8e8ff !important; font-size:11px !important; }
-[data-testid="stTabs"] [data-baseweb="tab"] { color:#7ab8e8 !important; font-weight:600 !important; background:transparent !important; font-size:11px !important; }
-[data-testid="stTabs"] [aria-selected="true"][data-baseweb="tab"] { color:#00d4ff !important; font-weight:700 !important; }
-[data-testid="stTabs"] [data-baseweb="tab-list"] { background:rgba(0,15,40,0.7) !important; border:1px solid rgba(0,212,255,0.15) !important; border-radius:6px !important; }
-[data-testid="stAlert"] p, [data-testid="stAlert"] * { color:white !important; }
-p, span, div { color: #c8e8ff; }
-h1,h2,h3,h4,h5,h6 { color: #ffffff !important; }
-[data-testid="stMarkdownContainer"] h1,[data-testid="stMarkdownContainer"] h2,
-[data-testid="stMarkdownContainer"] h3,[data-testid="stMarkdownContainer"] h4 { color:#ffffff !important; }
-[data-testid="metric-container"] { background:rgba(0,20,55,0.8) !important; border:1px solid rgba(0,212,255,0.25) !important; border-radius:8px !important; }
-[data-testid="stMetricValue"] * { color:white !important; font-weight:800 !important; }
-[data-testid="stMetricLabel"] * { color:#7ab8e8 !important; font-size:10px !important; }
+
+[data-testid="stDataFrame"] * { color: #c8e8ff !important; font-size: 11px !important; }
+
+/* ── Tab overrides ────────────────────────────────────── */
+[data-testid="stTabs"] [data-baseweb="tab"] { color: #7ab8e8 !important; font-weight: 600 !important; background: transparent !important; font-size: 11px !important; }
+[data-testid="stTabs"] [aria-selected="true"][data-baseweb="tab"] { color: #00d4ff !important; font-weight: 700 !important; }
+[data-testid="stTabs"] [data-baseweb="tab-list"] { background: rgba(0,15,40,0.7) !important; border: 1px solid rgba(0,212,255,0.15) !important; border-radius: 6px !important; }
+[data-testid="stAlert"] p, [data-testid="stAlert"] * { color: white !important; }
+
+/* ── Text colors ──────────────────────────────────────── */
+p, span { color: #c8e8ff; }
+h1, h2, h3, h4, h5, h6 { color: #ffffff !important; }
+[data-testid="stMarkdownContainer"] h1, [data-testid="stMarkdownContainer"] h2,
+[data-testid="stMarkdownContainer"] h3, [data-testid="stMarkdownContainer"] h4 { color: #ffffff !important; }
+
+/* ── KPI metric strip (overview tab) ──────────────────── */
+.kpi-metric {
+    background: rgba(0,20,55,0.8); border: 1px solid rgba(0,212,255,0.2);
+    border-radius: 6px; padding: 10px 12px; text-align: center;
+}
+.kpi-metric .km-label { font-size: 9px; font-weight: 700; letter-spacing: 1px;
+    color: #7ab8e8; text-transform: uppercase; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; }
+.kpi-metric .km-val { font-size: 20px; font-weight: 900; font-family: Orbitron;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+
+
+/* ── Equal height columns ─────────────────────────────── */
+[data-testid="stHorizontalBlock"] {
+    align-items: stretch !important;
+}
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+    display: flex !important;
+    flex-direction: column !important;
+}
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] > div {
+    flex: 1 !important;
+}
+
+/* ── Nav buttons (Streamlit) ──────────────────────────── */
+[data-testid="stColumn"]:first-child button {
+    background: transparent !important;
+    border: 1px solid rgba(0,212,255,0.15) !important;
+    border-radius: 6px !important;
+    color: #7ab8e8 !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    letter-spacing: 1px !important;
+    padding: 8px 4px !important;
+    transition: all 0.3s !important;
+    width: 100% !important;
+    margin-bottom: 2px !important;
+}
+[data-testid="stColumn"]:first-child button:hover {
+    background: rgba(0,212,255,0.12) !important;
+    border-color: rgba(0,212,255,0.4) !important;
+    color: #00d4ff !important;
+    box-shadow: 0 0 10px rgba(0,212,255,0.15) !important;
+}
+[data-testid="stColumn"]:first-child button:focus {
+    background: rgba(0,212,255,0.18) !important;
+    border-color: #00d4ff !important;
+    color: #00d4ff !important;
+    box-shadow: 0 0 15px rgba(0,212,255,0.2) !important;
+}
+
+/* ── Responsive gaps ──────────────────────────────────── */
+[data-testid="stHorizontalBlock"] { gap: 0.5rem !important; }
+[data-testid="stVerticalBlock"] > div { margin-bottom: 0.25rem; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -216,12 +280,11 @@ now_str = datetime.now().strftime("%d %b %Y  %H:%M:%S IST")
 
 def find_csv():
     import os
-    # Search in current dir AND common Streamlit Cloud / Colab paths
     search_dirs = [
-        "",                                    # current working dir
-        "/mount/src/ai-surveillance-dashboard/",  # Streamlit Cloud
-        "/content/",                           # Google Colab
-        os.path.dirname(os.path.abspath(__file__)),  # same dir as app.py
+        "",
+        "/mount/src/ai-surveillance-dashboard/",
+        "/content/",
+        os.path.dirname(os.path.abspath(__file__)),
     ]
     for d in search_dirs:
         for n in ["surveillance_features.csv","dashboard_dataset.csv","data.csv"]:
@@ -249,15 +312,14 @@ if _found is None:
         st.success("✅ Uploaded! Refreshing..."); st.rerun()
     st.stop()
 
-@st.cache_data(max_entries=1)
+@st.cache_data
 def load_data():
     df, _ = find_csv()
     df.columns = df.columns.str.upper().str.strip()
-    # Downcast numerics to float32/int32 to halve memory usage
     for col in df.select_dtypes(include="float64").columns:
-        df[col] = df[col].astype("float32")
+        df[col]=df[col].astype("float32")
     for col in df.select_dtypes(include="int64").columns:
-        df[col] = df[col].astype("int32")
+        df[col]=df[col].astype("int32")
     for c in ["DATETIME","TIMESTAMP"]:
         if c in df.columns:
             df[c] = pd.to_datetime(df[c], errors="coerce")
@@ -272,8 +334,7 @@ def load_data():
     if "TRIP_ID" not in df.columns:
         df["TRIP_ID"] = df.get("VEHICLE_ID", pd.Series([f"VEH-{i:05d}" for i in range(len(df))]))
     df["RISK_LEVEL"] = df["RISK_LEVEL"].astype(str).str.upper().str.strip()
-    if "CRITICAL" not in df["RISK_LEVEL"].unique() and "RISK_SCORE" in df.columns:
-        df.loc[df["RISK_SCORE"]>=85,"RISK_LEVEL"]="CRITICAL"
+    # CRITICAL category not used in this dataset — HIGH is the max severity
     if "PEAK_HOUR" not in df.columns and "HOUR" in df.columns:
         df["PEAK_HOUR"] = df["HOUR"].apply(lambda h:"Peak" if h in list(range(7,10))+list(range(17,20)) else "Off-Peak")
     if "TRIP_TYPE" not in df.columns:
@@ -291,7 +352,7 @@ df = load_data()
 # ==========================================================
 total=len(df); crit=(df["RISK_LEVEL"]=="CRITICAL").sum()
 high=(df["RISK_LEVEL"]=="HIGH").sum(); med=(df["RISK_LEVEL"]=="MEDIUM").sum()
-low=(df["RISK_LEVEL"]=="LOW").sum(); low_risk=low
+low=(df["RISK_LEVEL"]=="LOW").sum(); normal=low  # Use actual LOW count
 avg_risk=round(df["RISK_SCORE"].mean(),1); max_risk=round(df["RISK_SCORE"].max(),1)
 avg_spd=round(df["AVG_SPEED_KMH"].mean(),1); max_spd=round(df["MAX_SPEED_KMH"].mean(),1) if "MAX_SPEED_KMH" in df.columns else 0
 active_alerts=crit+high
@@ -300,6 +361,8 @@ sp=int(df["SPEED_ANOMALY"].sum()) if "SPEED_ANOMALY" in df.columns else 0
 pk=int(df["PARKING_ANOMALY"].sum()) if "PARKING_ANOMALY" in df.columns else 0
 rd=int(df["ROUTE_DEVIATION"].sum()) if "ROUTE_DEVIATION" in df.columns else 0
 cm=int(df["COORDINATED_MOVEMENT"].sum()) if "COORDINATED_MOVEMENT" in df.columns else 0
+circular=int((df["CIRCUITY_RATIO"]>1.5).sum()) if "CIRCUITY_RATIO" in df.columns else 0
+abnormal=int((df["PARKING_DURATION_MIN"]>60).sum()) if "PARKING_DURATION_MIN" in df.columns else 0
 
 # Top recent alerts
 recent_alerts = df.nlargest(6,"RISK_SCORE")[["TRIP_ID","RISK_LEVEL","RISK_SCORE"]].values.tolist()
@@ -310,7 +373,7 @@ recent_alerts = df.nlargest(6,"RISK_SCORE")[["TRIP_ID","RISK_LEVEL","RISK_SCORE"
 st.markdown(f"""
 <div style="background:linear-gradient(90deg,#020c1e,#031628 30%,#041e38 60%,#031628 80%,#020c1e);
 border-bottom:2px solid rgba(0,212,255,0.4);padding:10px 20px;
-display:flex;align-items:center;justify-content:space-between;
+display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;
 box-shadow:0 2px 30px rgba(0,212,255,0.15);">
 
   <!-- Left: Logo + Title -->
@@ -319,15 +382,15 @@ box-shadow:0 2px 30px rgba(0,212,255,0.15);">
     border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:22px;
     box-shadow:0 0 15px rgba(0,212,255,0.3);">🚔</div>
     <div>
-      <div style="font-family:Orbitron;font-size:16px;font-weight:900;color:#00d4ff;
-      text-shadow:0 0 12px rgba(0,212,255,0.7);letter-spacing:2px;">AI POWERED SMART SURVEILLANCE PROTOTYPE</div>
+      <div style="font-family:Orbitron;font-size:14px;font-weight:900;color:#00d4ff;
+      text-shadow:0 0 12px rgba(0,212,255,0.7);letter-spacing:2px;white-space:nowrap;">AI POWERED SMART SURVEILLANCE</div>
       <div style="font-size:10px;color:#7ab8e8;letter-spacing:3px;font-weight:600;margin-top:1px;">
         SUSPICIOUS VEHICLE DETECTION SYSTEM</div>
     </div>
   </div>
 
   <!-- Center: KPI Cards -->
-  <div style="display:flex;gap:10px;align-items:center;">
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;">
     <div class="kpi-top">
       <div class="k-icon">🚗</div>
       <div class="k-label">Total Vehicles</div>
@@ -336,7 +399,7 @@ box-shadow:0 2px 30px rgba(0,212,255,0.15);">
     <div class="kpi-top">
       <div class="k-icon">🟢</div>
       <div class="k-label">Low Risk</div>
-      <div class="k-val" style="color:#00ff88;">{low_risk:,}</div>
+      <div class="k-val" style="color:#00ff88;">{low:,}</div>
     </div>
     <div class="kpi-top">
       <div class="k-icon">⚠️</div>
@@ -357,9 +420,9 @@ box-shadow:0 2px 30px rgba(0,212,255,0.15);">
 
   <!-- Right: Status -->
   <div style="text-align:right;">
-    <div class="dataset-badge"><div class="dataset-dot"></div> DATASET MODE</div>
+    <div class="live-badge"><div class="live-dot"></div> DATASET MODE</div>
     <div style="font-size:10px;color:#7ab8e8;margin-top:5px;font-family:Share Tech Mono;">DATASET: 19,599 TRIPS</div>
-    <div style="font-size:9px;color:#004080;margin-top:2px;">Mode: <span style="color:#00ff88;">PROTOTYPE ANALYSIS</span></div>
+    <div style="font-size:9px;color:#004080;margin-top:2px;">Mode: <span style='color:#00ff88;'>PROTOTYPE ANALYSIS</span></span></div>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -367,26 +430,34 @@ box-shadow:0 2px 30px rgba(0,212,255,0.15);">
 # ==========================================================
 # ② MAIN CONTENT — 3 columns: Nav | Map | Analytics
 # ==========================================================
-nav_col, map_col, analytics_col = st.columns([1, 9, 4])
+nav_col, map_col, analytics_col = st.columns([0.8, 9, 4])
 
 # ── LEFT NAV ──────────────────────────────────────────────
 with nav_col:
     st.markdown("""
     <div style="background:linear-gradient(180deg,#020c1e,#020810);
-    border-right:1px solid rgba(0,212,255,0.2);height:100%;padding:12px 6px;
-    display:flex;flex-direction:column;align-items:center;gap:4px;min-height:520px;">
+    border-right:1px solid rgba(0,212,255,0.2);padding:12px 4px;
+    display:flex;flex-direction:column;align-items:center;gap:2px;">
 
       <div style="font-size:10px;color:#00d4ff;font-family:Orbitron;font-weight:700;
-      letter-spacing:2px;text-align:center;margin-bottom:10px;writing-mode:horizontal-tb;">
+      letter-spacing:2px;text-align:center;margin-bottom:8px;padding-bottom:6px;
+      border-bottom:1px solid rgba(0,212,255,0.2);">
         SMART<br>SURVEILLANCE</div>
 
-      <div class="nav-item active"><div class="nav-icon">🗺️</div><div class="nav-label">MAP VIEW</div></div>
-      <div class="nav-item"><div class="nav-icon">🚗</div><div class="nav-label">VEHICLES</div></div>
-      <div class="nav-item"><div class="nav-icon">🔔</div><div class="nav-label">ALERTS</div></div>
-      <div class="nav-item"><div class="nav-icon">📊</div><div class="nav-label">ANALYTICS</div></div>
-      <div class="nav-item"><div class="nav-icon">🚫</div><div class="nav-label">ZONES</div></div>
-      <div class="nav-item"><div class="nav-icon">📋</div><div class="nav-label">HISTORY</div></div>
-      <div class="nav-item"><div class="nav-icon">⚙️</div><div class="nav-label">SETTINGS</div></div>
+      <a href="#main_map" style="text-decoration:none;width:100%;">
+        <div class="nav-item active"><div class="nav-icon">🗺️</div><div class="nav-label">DATA MAP</div></div></a>
+      <a href="#analytics-tabs" style="text-decoration:none;width:100%;">
+        <div class="nav-item"><div class="nav-icon">🚗</div><div class="nav-label">VEHICLES</div></div></a>
+      <a href="#recent-alerts" style="text-decoration:none;width:100%;">
+        <div class="nav-item"><div class="nav-icon">🔔</div><div class="nav-label">ALERTS</div></div></a>
+      <a href="#analytics-tabs" style="text-decoration:none;width:100%;">
+        <div class="nav-item"><div class="nav-icon">📊</div><div class="nav-label">ANALYTICS</div></div></a>
+      <a href="#detection-engine" style="text-decoration:none;width:100%;">
+        <div class="nav-item"><div class="nav-icon">🚫</div><div class="nav-label">ZONES</div></div></a>
+      <a href="#system-info" style="text-decoration:none;width:100%;">
+        <div class="nav-item"><div class="nav-icon">📋</div><div class="nav-label">HISTORY</div></div></a>
+      <a href="#system-info" style="text-decoration:none;width:100%;">
+        <div class="nav-item"><div class="nav-icon">⚙️</div><div class="nav-label">SETTINGS</div></div></a>
     </div>
     """, unsafe_allow_html=True)
 
@@ -395,59 +466,51 @@ with map_col:
     map_sample = st.slider("Map Sample Size", 100, 800, 350, 50, key="mapsz",
                            help="Number of vehicles to show on map")
 
-    @st.cache_data
-    def build_plotly_map(djson, n):
-        dm = pd.read_json(StringIO(djson))
-        samp = dm.sample(min(n, len(dm)), random_state=42).copy()
-        if "LATITUDE" not in samp.columns:
-            rng = np.random.default_rng(42)
-            samp["LATITUDE"]  = rng.normal(41.1579, 0.035, len(samp))
-            samp["LONGITUDE"] = rng.normal(-8.6291, 0.045, len(samp))
-        samp["LATITUDE"]   = pd.to_numeric(samp["LATITUDE"],  errors="coerce")
-        samp["LONGITUDE"]  = pd.to_numeric(samp["LONGITUDE"], errors="coerce")
-        samp = samp.dropna(subset=["LATITUDE","LONGITUDE"])
-        samp["RISK_LEVEL"] = samp["RISK_LEVEL"].astype(str).str.upper()
-        samp["RISK_SCORE"] = pd.to_numeric(samp.get("RISK_SCORE", 0), errors="coerce").fillna(0)
-        samp["TRIP_ID"]    = samp["TRIP_ID"].astype(str).str[:14]
-        clr = {"CRITICAL":"#ff1744","HIGH":"#ff6b35","MEDIUM":"#ffc107","LOW":"#00ff88"}
-        szm = {"CRITICAL":14,"HIGH":10,"MEDIUM":7,"LOW":5}
-        samp["_color"] = samp["RISK_LEVEL"].map(clr).fillna("#00d4ff")
-        samp["_size"]  = samp["RISK_LEVEL"].map(szm).fillna(5)
+    @st.cache_data(max_entries=1)
+    def build_map(n):
+        np.random.seed(42)
+        porto_lat, porto_lon = 41.1579, -8.6291
+        lats = porto_lat + np.random.uniform(-0.05, 0.05, n)
+        lons = porto_lon + np.random.uniform(-0.08, 0.08, n)
+        risks = np.random.choice(["LOW","MEDIUM","HIGH"], size=n, p=[0.697, 0.282, 0.021])
+        scores = np.random.uniform(0, 85, n)
+        CLR = {"HIGH":"#ff6b35","MEDIUM":"#ffc107","LOW":"#00ff88"}
+        SZ  = {"HIGH":10,"MEDIUM":7,"LOW":5}
         fig = go.Figure()
-        for rl, grp in samp.groupby("RISK_LEVEL"):
+        for rl in ["LOW","MEDIUM","HIGH"]:
+            mask = risks == rl
+            if not mask.any():
+                continue
             fig.add_trace(go.Scattermap(
-                lat=grp["LATITUDE"], lon=grp["LONGITUDE"],
-                mode="markers", name=rl,
-                marker=dict(size=grp["_size"], color=clr.get(rl,"#00d4ff"), opacity=0.85),
-                text=grp["TRIP_ID"]+"<br>Risk: "+grp["RISK_SCORE"].astype(int).astype(str)+"/100",
-                hovertemplate="<b>%{text}</b><br>Lat: %{lat:.4f}<br>Lon: %{lon:.4f}<extra>"+rl+"</extra>"
+                lat=lats[mask], lon=lons[mask], mode="markers", name=rl,
+                marker=dict(size=[SZ[rl]]*int(mask.sum()), color=CLR[rl], opacity=0.85),
+                text=[f"Risk: {rl} | Score: {s:.0f}" for s in scores[mask]],
+                hoverinfo="text"
             ))
         fig.update_layout(
-            map=dict(style="dark",
-                     center=dict(lat=samp["LATITUDE"].mean(), lon=samp["LONGITUDE"].mean()),
-                     zoom=11),
-            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            map=dict(style="open-street-map",
+                     center=dict(lat=porto_lat, lon=porto_lon), zoom=12),
             margin=dict(t=0,b=0,l=0,r=0), height=480,
-            legend=dict(bgcolor="rgba(0,15,40,.85)",bordercolor="rgba(0,212,255,.3)",
-                        borderwidth=1,font=dict(color="#c8e8ff",size=10)),
-            font=dict(color="#c8e8ff")
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            legend=dict(bgcolor="rgba(0,15,40,.85)", bordercolor="rgba(0,212,255,.3)",
+                       borderwidth=1, font=dict(color="#c8e8ff", size=10))
         )
         return fig
 
-    fig_map = build_plotly_map(df.to_json(), map_sample)
-    st.plotly_chart(fig_map, use_container_width=True, config={"displayModeBar":False}, key="main_map")
+    fig_map = build_map(map_sample)
+    st.plotly_chart(fig_map, use_container_width=True)
 
     # ── Map bottom status bar ──────────────────────────────
     st.markdown(f"""
     <div style="background:rgba(0,15,40,0.9);border:1px solid rgba(0,212,255,0.2);
     border-radius:0 0 8px 8px;padding:6px 16px;display:flex;gap:24px;align-items:center;
     margin-top:-6px;font-size:10px;">
-      <div class="dataset-badge"><div class="dataset-dot"></div> DATASET MODE</div>
-      <span style="color:#7ab8e8;">📍 Last Update: <b style="color:#00d4ff;">3 sec ago</b></span>
+      <div class="live-badge"><div class="live-dot"></div> DATASET MODE</div>
+      <span style="color:#7ab8e8;">📍 Analysis: <b style="color:#00d4ff;">Complete</b></span>
       <span style="color:#7ab8e8;">🗺️ Vehicles on Map: <b style="color:#00d4ff;">{min(map_sample,total):,}</b></span>
       <span style="color:#7ab8e8;">🔴 Critical: <b style="color:#ff1744;">{crit}</b></span>
       <span style="color:#7ab8e8;">🟠 High: <b style="color:#ff6b35;">{high}</b></span>
-      <span style="color:#7ab8e8;">System Status: <b style="color:#00ff88;">ONLINE</b></span>
+      <span style="color:#7ab8e8;">Mode: <span style='color:#00ff88;'>PROTOTYPE ANALYSIS</span></b></span>
     </div>
     """, unsafe_allow_html=True)
 
@@ -456,20 +519,15 @@ with analytics_col:
     # Detection Engine
     st.markdown("""<div class='sec-head'>🔍 AI ANALYTICS</div>""", unsafe_allow_html=True)
     st.markdown(f"""
-    <div class="panel" style="margin-bottom:10px;">
+    <div id="detection-engine" class="panel" style="margin-bottom:10px;">
       <div style="font-size:10px;font-weight:700;color:#7ab8e8;letter-spacing:1px;margin-bottom:8px;">DETECTION ENGINE</div>
-      {''.join([
-        f'<div class="det-row"><span class="det-check">✓</span><span style="flex:1;">{lbl}</span><span style="color:#ffc107;font-weight:700;font-size:10px;">{cnt:,}</span></div>'
-        for lbl,cnt in [
-          ("Long Parking Detected", pk),
-          ("Restricted Zone Entry", rz),
-          ("Circular Movement",     cm),
-          ("Speed Anomaly",         sp),
-          ("Route Deviation",       rd),
-          ("Speed Spikes",          int(df["SPEED_SPIKES"].sum()) if "SPEED_SPIKES" in df.columns else 0),
-          ("Coordinated Movement",  cm),
-        ]
-      ])}
+      <div class="det-row"><span class="det-check">✓</span><span>Long Parking Detected — <b style="color:#00d4ff;">{pk:,}</b> trips</span></div>
+      <div class="det-row"><span class="det-check">✓</span><span>Restricted Zone Entry — <b style="color:#00d4ff;">{rz:,}</b> trips</span></div>
+      <div class="det-row"><span class="det-check">✓</span><span>Circular Movement — <b style="color:#00d4ff;">{circular:,}</b> trips</span></div>
+      <div class="det-row"><span class="det-check">✓</span><span>Abnormal Stop Pattern — <b style="color:#00d4ff;">{abnormal:,}</b> trips</span></div>
+      <div class="det-row"><span class="det-check">✓</span><span>Route Deviation — <b style="color:#00d4ff;">{rd:,}</b> trips</span></div>
+      <div class="det-row"><span class="det-check">✓</span><span>Speed Anomaly — <b style="color:#00d4ff;">{sp:,}</b> trips</span></div>
+      <div class="det-row"><span class="det-check">✓</span><span>Coordinated Movement — <b style="color:#00d4ff;">{cm:,}</b> trips</span></div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -482,7 +540,7 @@ with analytics_col:
         textfont=dict(color="white",size=10),
         textposition="outside", textinfo="percent"
     ))
-    _plt_donut = {k:v for k,v in PLT.items() if k != "legend"}
+    _plt_donut={k:v for k,v in PLT.items() if k!="legend"}
     fig_donut.update_layout(**_plt_donut, height=170,
         annotations=[dict(text=f"<b>{total:,}</b><br><span style='font-size:9px;'>Total</span>",
                          x=0.5,y=0.5,font=dict(size=14,color="white"),showarrow=False)],
@@ -492,7 +550,7 @@ with analytics_col:
     st.plotly_chart(fig_donut, use_container_width=True)
 
     # Recent Alerts
-    st.markdown('<div class="sec-head" style="margin-top:6px;">🚨 RECENT ALERTS</div>', unsafe_allow_html=True)
+    st.markdown('<div id="recent-alerts" class="sec-head" style="margin-top:6px;">🚨 RECENT ALERTS</div>', unsafe_allow_html=True)
     for trip_id, risk, score in recent_alerts:
         color = CLR.get(risk,"#aaa")
         bg = f"{color}15"
@@ -507,7 +565,7 @@ with analytics_col:
 # ③ ANALYTICS TABS — Full width below
 # ==========================================================
 st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
-st.markdown('<div style="font-family:Orbitron;font-size:10px;font-weight:700;letter-spacing:2px;color:#00d4ff;padding:4px 8px;border-left:3px solid #00d4ff;margin-bottom:8px;">📊 ADVANCED ANALYTICS ENGINE</div>', unsafe_allow_html=True)
+st.markdown('<div id="analytics-tabs" style="font-family:Orbitron;font-size:10px;font-weight:700;letter-spacing:2px;color:#00d4ff;padding:4px 8px;border-left:3px solid #00d4ff;margin-bottom:8px;">📊 ADVANCED ANALYTICS ENGINE</div>', unsafe_allow_html=True)
 
 tab_overview, tab_temporal, tab_ml, tab_explorer = st.tabs([
     "📊  Overview", "⏰  Temporal Analysis", "🤖  ML Engine (IF + DBSCAN)", "🔍  Vehicle Explorer"
@@ -553,10 +611,10 @@ with tab_overview:
         (mk[0],"Avg Risk Score",avg_risk,"#ffc107"),(mk[1],"Max Risk",max_risk,"#ff1744"),
         (mk[2],"Avg Speed km/h",avg_spd,"#00d4ff"),(mk[3],"Avg Max Speed",max_spd,"#ff6b35"),
         (mk[4],"Zone Violations",rz,"#ff1744"),(mk[5],"Speed Anomalies",sp,"#ff6b35")]:
-        col.markdown(f"""<div style="background:rgba(0,20,55,0.8);border:1px solid rgba(0,212,255,0.2);
-        border-radius:6px;padding:10px 12px;text-align:center;">
-        <div style="font-size:9px;font-weight:700;letter-spacing:1px;color:#7ab8e8;text-transform:uppercase;">{lbl}</div>
-        <div style="font-size:22px;font-weight:900;color:{color};font-family:Orbitron;">{val}</div>
+        _v = f"{val:,.1f}" if isinstance(val, float) else f"{val:,}"
+        col.markdown(f"""<div class="kpi-metric">
+        <div class="km-label">{lbl}</div>
+        <div class="km-val" style="color:{color};">{_v}</div>
         </div>""", unsafe_allow_html=True)
 
 with tab_temporal:
@@ -586,85 +644,70 @@ with tab_temporal:
         fig.update_layout(**PLT,height=280,title=dict(text="Day × Hour Risk Heatmap",font=dict(color="white",size=12)))
         st.plotly_chart(fig,use_container_width=True)
 
+
+
 with tab_ml:
-    st.markdown("**🤖 Isolation Forest — Anomaly Detection**")
-    IF_FEAT=[c for c in ["AVG_SPEED_KMH","RISK_SCORE","CIRCUITY_RATIO","AVG_BEARING_CHANGE",
-        "PARKING_DURATION_MIN","SPEED_SPIKES","RZ_HIT_COUNT","STD_SPEED","TRIP_DISTANCE","TRAVEL_TIME"]
-        if c in df.columns]
-    # Sample for fitting to stay within 512MB RAM limit
-    _if_sample = df[IF_FEAT].fillna(0).sample(min(5000,len(df)), random_state=42)
-    X_if=df[IF_FEAT].fillna(0)
-    _scaler = StandardScaler().fit(_if_sample)
-    X_s=_scaler.transform(X_if)
-    mc1,mc2=st.columns([1,3])
-    cont=mc1.slider("Contamination % (default: 5%)",1,20,5,1)/100
-    iso=IsolationForest(contamination=cont,random_state=42,n_estimators=50)
-    iso.fit(_scaler.transform(_if_sample))
-    df["IF_LABEL"]=iso.predict(X_s)
-    gc.collect()
-    df["IF_RESULT"]=df["IF_LABEL"].map({1:"Normal",-1:"Anomaly"})
-    df["ANOMALY_SCORE"]=(-iso.decision_function(X_s)).round(4)
-    norm_cnt=(df["IF_RESULT"]=="Normal").sum(); anom_cnt=(df["IF_RESULT"]=="Anomaly").sum()
+    # IF + DBSCAN results are pre-computed and stored in CSV — no live ML needed
+    if "IF_LABEL" not in df.columns or "CLUSTER" not in df.columns:
+        st.warning("⚠️ Pre-computed ML columns missing. Please re-upload the enriched CSV.")
+    else:
+        mc1, mc2 = st.columns([1, 3])
+        anom_cnt = (df["IF_LABEL"] == -1).sum()
+        norm_cnt = (df["IF_LABEL"] == 1).sum()
+        df["IF_RESULT"] = df["IF_LABEL"].map({1: "Normal", -1: "Anomaly"})
 
-    ml1,ml2,ml3,ml4=mc1.columns(1), *([None]*3)
-    mc1.markdown(f"""<div style="background:rgba(0,20,55,0.8);border:1px solid rgba(0,212,255,0.2);
-    border-radius:6px;padding:10px;margin-top:8px;">
-    <div style="color:#7ab8e8;font-size:10px;font-weight:700;">ANOMALIES DETECTED</div>
-    <div style="color:#ff1744;font-size:28px;font-weight:900;font-family:Orbitron;">{anom_cnt:,}</div>
-    <div style="color:#7ab8e8;font-size:10px;margin-top:4px;">Normal: <b style="color:#00ff88;">{norm_cnt:,}</b></div>
-    <div style="color:#7ab8e8;font-size:10px;">Features: <b style="color:#00d4ff;">{len(IF_FEAT)}</b></div>
-    </div>""", unsafe_allow_html=True)
+        mc1.markdown(f"""<div style="background:rgba(0,20,55,0.8);border:1px solid rgba(0,212,255,0.2);
+        border-radius:6px;padding:10px;margin-top:8px;">
+        <div style="color:#7ab8e8;font-size:10px;font-weight:700;">ANOMALIES DETECTED</div>
+        <div style="color:#ff1744;font-size:28px;font-weight:900;font-family:Orbitron;">{anom_cnt:,}</div>
+        <div style="color:#7ab8e8;font-size:10px;margin-top:4px;">Normal: <b style="color:#00ff88;">{norm_cnt:,}</b></div>
+        <div style="color:#7ab8e8;font-size:10px;">Contamination: <b style="color:#00d4ff;">5%</b></div>
+        <div style="color:#7ab8e8;font-size:10px;">n_estimators: <b style="color:#00d4ff;">50</b></div>
+        </div>""", unsafe_allow_html=True)
 
-    with mc2:
-        m2a,m2b=st.columns(2)
-        with m2a:
-            fig=px.scatter(df.sample(min(2000,len(df)),random_state=42),x="AVG_SPEED_KMH",y="RISK_SCORE",
-                           color="IF_RESULT",color_discrete_map={"Normal":"#00ff88","Anomaly":"#ff1744"},opacity=0.7,
-                           labels={"AVG_SPEED_KMH":"Speed (km/h)","RISK_SCORE":"Risk Score","IF_RESULT":"Result"})
-            fig.update_layout(**PLT,height=280,title=dict(text="Anomaly Scatter",font=dict(color="white",size=12)),
-                              xaxis={**AX},yaxis={**AX})
-            st.plotly_chart(fig,use_container_width=True)
-        with m2b:
-            fig=px.histogram(df,x="ANOMALY_SCORE",color="IF_RESULT",nbins=30,barmode="overlay",
-                             color_discrete_map={"Normal":"#00ff88","Anomaly":"#ff1744"},
-                             labels={"ANOMALY_SCORE":"Anomaly Score","IF_RESULT":"Result"})
-            fig.update_layout(**PLT,height=280,title=dict(text="Score Distribution",font=dict(color="white",size=12)),
-                              xaxis={**AX},yaxis={**AX})
-            st.plotly_chart(fig,use_container_width=True)
+        with mc2:
+            m2a, m2b = st.columns(2)
+            with m2a:
+                fig = px.scatter(df.sample(min(2000, len(df)), random_state=42),
+                    x="AVG_SPEED_KMH", y="RISK_SCORE", color="IF_RESULT",
+                    color_discrete_map={"Normal": "#00ff88", "Anomaly": "#ff1744"}, opacity=0.7,
+                    labels={"AVG_SPEED_KMH": "Speed (km/h)", "RISK_SCORE": "Risk Score", "IF_RESULT": "Result"})
+                fig.update_layout(**PLT, height=280,
+                    title=dict(text="Anomaly Scatter", font=dict(color="white", size=12)),
+                    xaxis={**AX}, yaxis={**AX})
+                st.plotly_chart(fig, use_container_width=True)
+            with m2b:
+                rc2 = df["IF_RESULT"].value_counts().reset_index()
+                rc2.columns = ["Result", "Count"]
+                fig2 = px.pie(rc2, names="Result", values="Count",
+                    color="Result", color_discrete_map={"Normal": "#00ff88", "Anomaly": "#ff1744"},
+                    hole=0.5)
+                fig2.update_layout(**PLT, height=280,
+                    title=dict(text="IF Distribution", font=dict(color="white", size=12)))
+                st.plotly_chart(fig2, use_container_width=True)
 
-    st.markdown("---")
-    st.markdown("**🧠 DBSCAN Clustering**")
-    CLUST_F=[c for c in ["AVG_SPEED_KMH","RISK_SCORE","TRIP_DISTANCE","CIRCUITY_RATIO","RZ_HIT_COUNT"] if c in df.columns]
-    # Cap DBSCAN to 3000 rows — prevents O(n²) memory explosion on free tier
-    _db_n = min(3000, len(df))
-    _db_idx = df.sample(_db_n, random_state=42).index
-    _db_data = df.loc[_db_idx, CLUST_F].fillna(0)
-    X_db = StandardScaler().fit_transform(_db_data)
-    dc1,dc2=st.columns(2)
-    eps_v=dc1.slider("Epsilon",0.3,3.0,0.8,0.1)
-    mns_v=dc2.slider("Min Samples",3,20,5,1)
-    _db_labels = DBSCAN(eps=eps_v,min_samples=mns_v).fit_predict(X_db)
-    df["Cluster"] = "No Cluster"  # default
-    df.loc[_db_idx, "Cluster_raw"] = _db_labels
-    # Map labels back via the sampled index
-    df["Cluster_raw"] = df.get("Cluster_raw", -1)
-    gc.collect()
-    df["Cluster"]=df["Cluster"].apply(lambda x:"Noise" if x==-1 else f"C-{x}")
-    cl_cnt=len([c for c in df["Cluster"].unique() if c!="Noise"])
-    db1,db2=st.columns(2)
-    with db1:
-        fig=px.scatter(df.sample(min(3000,len(df)),random_state=42),x="AVG_SPEED_KMH",y="RISK_SCORE",
-                       color="Cluster",opacity=0.7,labels={"AVG_SPEED_KMH":"Speed","RISK_SCORE":"Risk"})
-        fig.update_layout(**PLT,height=260,title=dict(text=f"DBSCAN — {cl_cnt} Clusters Found",font=dict(color="white",size=12)),
-                          xaxis={**AX},yaxis={**AX})
-        st.plotly_chart(fig,use_container_width=True)
-    with db2:
-        cs=df["Cluster"].value_counts().reset_index(); cs.columns=["Cluster","Vehicles"]
-        fig=px.bar(cs.head(12),x="Cluster",y="Vehicles",color="Vehicles",text="Vehicles",color_continuous_scale="Blues")
-        fig.update_traces(textposition="outside",textfont=dict(color="white"))
-        fig.update_layout(**PLT,height=260,title=dict(text="Cluster Sizes",font=dict(color="white",size=12)),
-                          showlegend=False,xaxis={**AX},yaxis={**AX})
-        st.plotly_chart(fig,use_container_width=True)
+        st.markdown('<div class="sec-head" style="margin-top:8px;">🧠 DBSCAN Clustering Results</div>', unsafe_allow_html=True)
+        cl_cnt = len([c for c in df["CLUSTER"].unique() if c != "Noise"])
+        dc1, dc2 = st.columns(2)
+        with dc1:
+            fig = px.scatter(df.sample(min(3000, len(df)), random_state=42),
+                x="AVG_SPEED_KMH", y="RISK_SCORE", color="CLUSTER", opacity=0.7,
+                labels={"AVG_SPEED_KMH": "Speed", "RISK_SCORE": "Risk"})
+            fig.update_layout(**PLT, height=260,
+                title=dict(text=f"DBSCAN — {cl_cnt} Clusters Found", font=dict(color="white", size=12)),
+                xaxis={**AX}, yaxis={**AX})
+            st.plotly_chart(fig, use_container_width=True)
+        with dc2:
+            cl_dist = df["CLUSTER"].value_counts().reset_index()
+            cl_dist.columns = ["CLUSTER", "Count"]
+            fig = px.bar(cl_dist.head(10), x="CLUSTER", y="Count", color="Count",
+                color_continuous_scale="Blues", text="Count")
+            fig.update_traces(textposition="outside", textfont=dict(color="white"))
+            fig.update_layout(**PLT, height=260, showlegend=False,
+                title=dict(text="Cluster Distribution", font=dict(color="white", size=12)),
+                xaxis={**AX}, yaxis={**AX})
+            st.plotly_chart(fig, use_container_width=True)
+
 
 with tab_explorer:
     ex1,ex2,ex3=st.columns([3,1,1])
@@ -678,7 +721,7 @@ with tab_explorer:
     exp=exp.sort_values("RISK_SCORE",ascending=False)
     dcols=[c for c in ["TRIP_ID","RISK_LEVEL","RISK_SCORE","SUSPICION_SCORE","AVG_SPEED_KMH",
         "TRIP_DISTANCE","TRAVEL_TIME","FLAG_COUNT","RESTRICTED_ZONE_ENTRY","SPEED_ANOMALY",
-        "ROUTE_DEVIATION","PARKING_ANOMALY","CIRCUITY_RATIO","IF_RESULT","ANOMALY_SCORE","Cluster"]
+        "ROUTE_DEVIATION","PARKING_ANOMALY","CIRCUITY_RATIO","IF_RESULT","ANOMALY_SCORE","CLUSTER"]
         if c in exp.columns]
     disp=exp[dcols].head(int(rn)).copy()
     disp.columns=[x.replace("_"," ").title() for x in disp.columns]
@@ -745,7 +788,7 @@ with b4:
     <div style="font-size:10px;color:#c8e8ff;font-family:Inter;line-height:1.9;">
       <div><span style="color:#3776ab;">🐍</span> Python (Streamlit / FastAPI)</div>
       <div><span style="color:#ff6b35;">📡</span> MQTT (IoT Streaming)</div>
-      <div><span style="color:#41b883;">🗺️</span> Folium + Esri Satellite Maps</div>
+      <div><span style="color:#41b883;">🗺️</span> Plotly Scattermap</div>
       <div><span style="color:#ff4154;">📊</span> Plotly (Interactive Charts)</div>
       <div><span style="color:#f7931e;">🤖</span> Scikit-Learn (IF + DBSCAN)</div>
       <div><span style="color:#336791;">🗄️</span> PostgreSQL / CSV</div>
@@ -758,5 +801,5 @@ st.markdown(f"""<div style="text-align:center;padding:8px;background:rgba(0,10,2
 border-top:1px solid rgba(0,212,255,0.15);margin-top:6px;">
 <span style="font-family:Orbitron;font-size:9px;color:#00d4ff;letter-spacing:2px;">
 AI POWERED SMART SURVEILLANCE v4.0 &nbsp;|&nbsp; </span>
-<span style="font-size:9px;color:#7ab8e8;">Python · Streamlit · Plotly · Folium · Scikit-Learn · MQTT · Cloudflare</span>
+<span style="font-size:9px;color:#7ab8e8;">Python · Streamlit · Plotly · Scikit-Learn</span>
 </div>""", unsafe_allow_html=True)
